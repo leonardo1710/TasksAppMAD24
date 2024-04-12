@@ -1,34 +1,46 @@
 package com.example.tasksappmad24
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.tasksappmad24.models.Task
 import com.example.tasksappmad24.models.getTasks
+import com.example.tasksappmad24.repositories.TaskRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
-class TaskViewModel: ViewModel() {
-    private val _tasks = MutableStateFlow(getTasks())
+class TaskViewModel(private val repository: TaskRepository): ViewModel() {
+    private val _tasks = MutableStateFlow(listOf<Task>())
     val tasks: StateFlow<List<Task>> = _tasks.asStateFlow()
 
-    fun toggleDoneState(task: Task) = _tasks.value.find { it.label == task.label }?.let {
-        it.isDone = !it.isDone
-    }
-
-    fun addTask(task: Task){
-        _tasks.update {
-            val list: MutableList<Task> = _tasks.value.toMutableList()
-            list.add(task)
-            list
+    init {
+        viewModelScope.launch {
+            repository.getAllTasks().collect {taskList ->
+                _tasks.value = taskList
+            }
         }
     }
 
+    fun toggleDoneState(task: Task) {
+        task.isDone = !task.isDone
+
+        viewModelScope.launch {
+            repository.update(task)
+        }
+    }
+
+    fun addTask(task: Task){
+        viewModelScope.launch {
+            repository.add(task)
+        }
+
+    }
+
     fun deleteTask(task: Task) {
-        _tasks.update {
-            val list: MutableList<Task> = _tasks.value.toMutableList()
-            list.remove(task)
-            list
+        viewModelScope.launch {
+            repository.delete(task)
         }
     }
 }

@@ -24,15 +24,18 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.tasksappmad24.di.InjectorUtils
 import com.example.tasksappmad24.models.Task
 import com.example.tasksappmad24.models.getTasks
 import com.example.tasksappmad24.ui.theme.TasksAppMAD24Theme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,17 +46,41 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val viewModel: TaskViewModel = viewModel()
+
+                    /*
+                    val db = TaskDatabase.getDatabase(LocalContext.current)
+                    val repository = TaskRepository(taskDao = db.taskDao())
+                    val factory = TaskViewModelFactory(repository = repository)
+                    val viewModel: TaskViewModel = viewModel(factory = factory)
                     val tasksState = viewModel.tasks.collectAsState()
+
+                     */
+
+                    val viewModel: TaskViewModel = viewModel(factory = InjectorUtils.provideTaskViewModelFactory(
+                        LocalContext.current
+                    ))
+                    val tasksState = viewModel.tasks.collectAsState()
+                    val coroutineScope = rememberCoroutineScope()
 
                     Column {
                         AddTask(
-                            onAddClick = {task -> viewModel.addTask(task) }
+                            onAddClick = {task ->
+                                coroutineScope.launch {
+                                    viewModel.addTask(task)
+                                }
+                            }
                         )
                         TaskList(
                             tasks = tasksState.value,
-                            onTaskChecked = {task -> viewModel.toggleDoneState(task)},
-                            onTaskDone = {task -> viewModel.deleteTask(task)}
+                            onTaskChecked = {task ->
+                                coroutineScope.launch {
+                                    viewModel.toggleDoneState(task)
+                                }},
+                            onTaskDone = { task ->
+                                coroutineScope.launch {
+                                    viewModel.deleteTask(task)
+                                }
+                            }
                         )
                     }
 
@@ -79,7 +106,7 @@ fun AddTask(
         )
 
         Button(onClick = {
-            onAddClick(Task(label))
+            onAddClick(Task(label = label))
             label = ""
         }) {
             Text(text = "Add")
